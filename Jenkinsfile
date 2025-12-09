@@ -1,47 +1,36 @@
 node {
-    // reference to maven
-    // ** NOTE: This 'maven-3.5.2' Maven tool must be configured in the Jenkins Global Configuration.   
-    def mvnHome = tool 'maven-3.5.2'
+    // Name of Maven tool from Jenkins > Manage Jenkins > Global Tool Configuration
+    def mvnHome = tool 'Maven-3.9.11'   // <-- change only if your tool name is different
 
-    // holds reference to docker image
+    // Docker image name
+    def appImage = "vickeyyvickey/devopsdemo"
     def dockerImage
-    // ip address of the docker private repository(nexus)
- 
-    def dockerImageTag = "devopsexample${env.BUILD_NUMBER}"
-    
-    stage('Clone Repo') { // for display purposes
-      // Get some code from a GitHub repository
-      git 'https://github.com/vikas4cloud/DevOps-Example.git'
-      // Get the Maven tool.
-      // ** NOTE: This 'maven-3.5.2' Maven tool must be configured
-      // **       in the global configuration.           
-      mvnHome = tool 'maven-3.5.2'
-    }    
-  
-    stage('Build Project') {
-      // build project via maven
-      sh "'${mvnHome}/bin/mvn' clean install"
+
+    stage('Clone Repo') {
+        // If you have your own fork, replace with your repo URL
+        git 'https://github.com/vikas4cloud/DevOps-Example.git'
     }
-		
+
+    stage('Build with Maven') {
+        sh "'${mvnHome}/bin/mvn' -version"
+        sh "'${mvnHome}/bin/mvn' clean package -DskipTests"
+    }
+
     stage('Build Docker Image') {
-      // build docker image
-      dockerImage = docker.build("devopsexample:${env.BUILD_NUMBER}")
-    }
-   	  
-    stage('Deploy Docker Image and login'){
-      
-      echo "Docker Image Tag Name: ${dockerImageTag}"
-	  
+        // Builds image using Dockerfile in the repo
+        dockerImage = docker.build("${appImage}:${env.BUILD_NUMBER}")
         sh "docker images"
-        sh "docker login -u vickeyyvickey -p Hello@123" // put PWD
-	
-}
-    stage('Docker push'){
-       // docker images | awk '{print $3}' | awk 'NR==2'
-	// sh "docker images | awk '{print $3}' | awk 'NR==2'"
-	//sh echo "Enter the docker lattest imageID"
-	//sh "read imageid"
-	   sh "docker tag 90cc3c109088   vickeyyvickey/myapplication" //must change your name and tag no
-        sh "docker push   vickeyyvickey/myapplication"
-  }
+    }
+
+    stage('Docker Login') {
+        // ⚠ In production use withCredentials + Jenkins credentials
+        sh "docker login -u vickeyyvickey -p Hello@123"
+    }
+
+    stage('Docker Push') {
+        // Push tagged image and 'latest'
+        echo "Pushing image: ${appImage}:${env.BUILD_NUMBER}"
+        dockerImage.push()
+        dockerImage.push("latest")
+    }
 }
